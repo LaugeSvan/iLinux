@@ -1,5 +1,7 @@
 # iLinux
 
+<img src="icon.svg" width="100" height="100">
+
 **macOS-inspired Linux installer**
 by **SalsaCat**
 
