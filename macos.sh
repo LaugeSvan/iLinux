@@ -91,7 +91,7 @@ install_gtk_theme() {
       echo "Installing GTK theme: McMojave..."
       gh_clone "https://github.com/vinceliuice/McMojave-gtk-theme.git" "$USER_HOME/.themes/McMojave-gtk-theme"
       cd "$USER_HOME/.themes/McMojave-gtk-theme"
-      ./install.sh -d dark -y
+      ./install.sh -c dark --silent-mode
       ;;
     0) echo "Skipping GTK theme."; return ;;
     *) echo "Invalid option, skipping GTK theme."; return ;;
