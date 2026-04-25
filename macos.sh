@@ -145,13 +145,13 @@ install_wallpaper() {
   mkdir -p "$USER_HOME/Pictures/Wallpapers"
 
   # Base URL for WhiteSur wallpapers (always pulls from main branch = latest)
-  local BASE="https://raw.githubusercontent.com/vinceliuice/WhiteSur-wallpapers/main/src/4k"
+  local BASE="https://raw.githubusercontent.com/vinceliuice/WhiteSur-wallpapers/main/4k"
 
   case $WALLPAPER_NAME in
     1)
       echo "Downloading Big Sur wallpaper..."
       WALLPAPER_FILE="$USER_HOME/Pictures/Wallpapers/big-sur.jpg"
-      wget "$BASE/monterey/monterey-light.jpg" -O "$WALLPAPER_FILE" || {
+      wget "$BASE/Monterey-light.jpg" -O "$WALLPAPER_FILE" || {
         echo "  ERROR: Could not download wallpaper."
         return
       }
@@ -159,7 +159,7 @@ install_wallpaper() {
     2)
       echo "Downloading Ventura wallpaper..."
       WALLPAPER_FILE="$USER_HOME/Pictures/Wallpapers/ventura.jpg"
-      wget "$BASE/ventura/ventura-light.jpg" -O "$WALLPAPER_FILE" || {
+      wget "$BASE/Ventura-light.jpg" -O "$WALLPAPER_FILE" || {
         echo "  ERROR: Could not download wallpaper."
         return
       }
