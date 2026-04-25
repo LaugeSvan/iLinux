@@ -15,7 +15,43 @@
 
 set -e
 
+# -------------------------------
+# Guards
+# -------------------------------
+
+if [[ -z "$SUDO_USER" ]]; then
+  echo "Please run with sudo: sudo ./macos.sh"
+  exit 1
+fi
+
 USER_HOME=$(eval echo "~$SUDO_USER")
+
+# -------------------------------
+# Helper: fetch latest GitHub release download URL
+# Usage: gh_latest_asset <owner/repo> <pattern>
+# -------------------------------
+
+gh_latest_asset() {
+  local repo="$1"
+  local pattern="$2"
+  curl -s "https://api.github.com/repos/$repo/releases/latest" \
+    | grep "browser_download_url" \
+    | grep "$pattern" \
+    | cut -d '"' -f 4 \
+    | head -1
+}
+
+# Helper: clone or pull a repo (skips re-cloning if already present)
+gh_clone() {
+  local url="$1"
+  local dir="$2"
+  if [[ -d "$dir" ]]; then
+    echo "  Already cloned, pulling latest..."
+    git -C "$dir" pull --ff-only
+  else
+    git clone "$url" "$dir"
+  fi
+}
 
 # -------------------------------
 # Functions for each component
@@ -25,90 +61,117 @@ install_fonts() {
   echo "Installing Inter font..."
   mkdir -p "$USER_HOME/.fonts"
   cd "$USER_HOME/.fonts"
-  wget -q https://github.com/rsms/inter/releases/download/v3.21/Inter-3.21.zip -O inter.zip
-  unzip -qq inter.zip
+
+  echo "  Fetching latest Inter release..."
+  INTER_URL=$(gh_latest_asset "rsms/inter" "\.zip")
+  if [[ -z "$INTER_URL" ]]; then
+    echo "  ERROR: Could not fetch Inter download URL. Check your internet connection."
+    exit 1
+  fi
+  echo "  Downloading $INTER_URL..."
+  wget "$INTER_URL" -O inter.zip
+  unzip -qq -o inter.zip "*.ttf" 2>/dev/null || unzip -qq -o inter.zip
   rm inter.zip
+  fc-cache -fv
+  echo "  Inter font installed."
 }
 
 install_gtk_theme() {
-  THEME_NAME="$1"
-  echo "Installing GTK theme: $THEME_NAME..."
+  local THEME_NAME="$1"
   mkdir -p "$USER_HOME/.themes"
-  cd "$USER_HOME/.themes"
 
   case $THEME_NAME in
     1) # WhiteSur
-      git clone https://github.com/vinceliuice/WhiteSur-gtk-theme.git
-      cd WhiteSur-gtk-theme
+      echo "Installing GTK theme: WhiteSur..."
+      gh_clone "https://github.com/vinceliuice/WhiteSur-gtk-theme.git" "$USER_HOME/.themes/WhiteSur-gtk-theme"
+      cd "$USER_HOME/.themes/WhiteSur-gtk-theme"
       ./install.sh -d dark -c blue -y
       ;;
     2) # McMojave
-      git clone https://github.com/vinceliuice/McMojave-gtk-theme.git
-      cd McMojave-gtk-theme
+      echo "Installing GTK theme: McMojave..."
+      gh_clone "https://github.com/vinceliuice/McMojave-gtk-theme.git" "$USER_HOME/.themes/McMojave-gtk-theme"
+      cd "$USER_HOME/.themes/McMojave-gtk-theme"
       ./install.sh -d dark -y
       ;;
-    0) echo "Skipping GTK theme"; return ;;
-    *) echo "Invalid option"; return ;;
+    0) echo "Skipping GTK theme."; return ;;
+    *) echo "Invalid option, skipping GTK theme."; return ;;
   esac
   cd "$USER_HOME"
 }
 
 install_icon_theme() {
-  ICON_NAME="$1"
-  echo "Installing icon theme: $ICON_NAME..."
+  local ICON_NAME="$1"
   mkdir -p "$USER_HOME/.icons"
-  cd "$USER_HOME/.icons"
 
   case $ICON_NAME in
     1) # WhiteSur
-      git clone https://github.com/vinceliuice/WhiteSur-icon-theme.git
-      cd WhiteSur-icon-theme
+      echo "Installing icon theme: WhiteSur..."
+      gh_clone "https://github.com/vinceliuice/WhiteSur-icon-theme.git" "$USER_HOME/.icons/WhiteSur-icon-theme"
+      cd "$USER_HOME/.icons/WhiteSur-icon-theme"
       ./install.sh
       ;;
     2) # McMojave
-      git clone https://github.com/vinceliuice/McMojave-circle-icon-theme.git
-      cd McMojave-circle-icon-theme
+      echo "Installing icon theme: McMojave-circle..."
+      gh_clone "https://github.com/vinceliuice/McMojave-circle-icon-theme.git" "$USER_HOME/.icons/McMojave-circle-icon-theme"
+      cd "$USER_HOME/.icons/McMojave-circle-icon-theme"
       ./install.sh
       ;;
-    0) echo "Skipping icon theme"; return ;;
-    *) echo "Invalid option"; return ;;
+    0) echo "Skipping icon theme."; return ;;
+    *) echo "Invalid option, skipping icon theme."; return ;;
   esac
   cd "$USER_HOME"
 }
 
 install_cursor_theme() {
-  CURSOR_NAME="$1"
-  echo "Installing cursor theme: $CURSOR_NAME..."
+  local CURSOR_NAME="$1"
   mkdir -p "$USER_HOME/.icons"
-  cd "$USER_HOME/.icons"
 
   case $CURSOR_NAME in
     1) # WhiteSur
-      git clone https://github.com/vinceliuice/WhiteSur-cursors.git
-      cd WhiteSur-cursors
+      echo "Installing cursor theme: WhiteSur..."
+      gh_clone "https://github.com/vinceliuice/WhiteSur-cursors.git" "$USER_HOME/.icons/WhiteSur-cursors"
+      cd "$USER_HOME/.icons/WhiteSur-cursors"
       ./install.sh
       ;;
-    0) echo "Skipping cursor theme"; return ;;
-    *) echo "Invalid option"; return ;;
+    0) echo "Skipping cursor theme."; return ;;
+    *) echo "Invalid option, skipping cursor theme."; return ;;
   esac
   cd "$USER_HOME"
 }
 
 install_wallpaper() {
-  WALLPAPER_NAME="$1"
+  local WALLPAPER_NAME="$1"
+  local WALLPAPER_FILE=""
   mkdir -p "$USER_HOME/Pictures/Wallpapers"
-  cd "$USER_HOME/Pictures/Wallpapers"
+
+  # Base URL for WhiteSur wallpapers (always pulls from main branch = latest)
+  local BASE="https://raw.githubusercontent.com/vinceliuice/WhiteSur-wallpapers/main/src/4k"
 
   case $WALLPAPER_NAME in
-    1) wget -q https://wallpapers.apple.com/wallpaper/Big-Sur-4k.jpg -O big-sur.jpg
-       sudo -u $SUDO_USER gsettings set org.gnome.desktop.background picture-uri "file://$USER_HOME/Pictures/Wallpapers/big-sur.jpg"
-       ;;
-    2) wget -q https://wallpapers.apple.com/wallpaper/macOS-Ventura-4k.jpg -O ventura.jpg
-       sudo -u $SUDO_USER gsettings set org.gnome.desktop.background picture-uri "file://$USER_HOME/Pictures/Wallpapers/ventura.jpg"
-       ;;
-    0) echo "Skipping wallpaper"; return ;;
-    *) echo "Invalid option"; return ;;
+    1)
+      echo "Downloading Big Sur wallpaper..."
+      WALLPAPER_FILE="$USER_HOME/Pictures/Wallpapers/big-sur.jpg"
+      wget "$BASE/monterey/monterey-light.jpg" -O "$WALLPAPER_FILE" || {
+        echo "  ERROR: Could not download wallpaper."
+        return
+      }
+      ;;
+    2)
+      echo "Downloading Ventura wallpaper..."
+      WALLPAPER_FILE="$USER_HOME/Pictures/Wallpapers/ventura.jpg"
+      wget "$BASE/ventura/ventura-light.jpg" -O "$WALLPAPER_FILE" || {
+        echo "  ERROR: Could not download wallpaper."
+        return
+      }
+      ;;
+    0) echo "Skipping wallpaper."; return ;;
+    *) echo "Invalid option, skipping wallpaper."; return ;;
   esac
+
+  if [[ -n "$WALLPAPER_FILE" ]]; then
+    sudo -u "$SUDO_USER" gsettings set org.gnome.desktop.background picture-uri "file://$WALLPAPER_FILE"
+    sudo -u "$SUDO_USER" gsettings set org.gnome.desktop.background picture-uri-dark "file://$WALLPAPER_FILE"
+  fi
   cd "$USER_HOME"
 }
 
@@ -121,15 +184,15 @@ install_dock() {
 Alignment=Center
 DockItems=['/usr/share/applications/firefox.desktop','/usr/share/applications/nautilus.desktop','/usr/share/applications/gnome-terminal.desktop']
 EOL
-  chown -R $SUDO_USER:$SUDO_USER "$USER_HOME/.config"
+  chown -R "$SUDO_USER:$SUDO_USER" "$USER_HOME/.config"
 }
 
 apply_settings() {
-  sudo -u $SUDO_USER gsettings set org.gnome.desktop.interface gtk-theme "$GTK_THEME"
-  sudo -u $SUDO_USER gsettings set org.gnome.desktop.interface icon-theme "$ICON_THEME"
-  sudo -u $SUDO_USER gsettings set org.gnome.desktop.interface cursor-theme "$CURSOR_THEME"
-  sudo -u $SUDO_USER gsettings set org.gnome.desktop.interface enable-animations true
-  sudo -u $SUDO_USER gsettings set org.gnome.mutter experimental-features "['rounded-corners']"
+  sudo -u "$SUDO_USER" gsettings set org.gnome.desktop.interface gtk-theme "$GTK_THEME"
+  sudo -u "$SUDO_USER" gsettings set org.gnome.desktop.interface icon-theme "$ICON_THEME"
+  [[ -n "$CURSOR_THEME" ]] && sudo -u "$SUDO_USER" gsettings set org.gnome.desktop.interface cursor-theme "$CURSOR_THEME"
+  sudo -u "$SUDO_USER" gsettings set org.gnome.desktop.interface enable-animations true
+  sudo -u "$SUDO_USER" gsettings set org.gnome.mutter experimental-features "['rounded-corners']"
 }
 
 # -------------------------------
@@ -155,9 +218,9 @@ if [[ "$INSTALL_TYPE" == "R" || "$INSTALL_TYPE" == "r" ]]; then
   apply_settings
 else
   echo "Custom installation selected..."
-  
+
   install_fonts
-  
+
   echo "Choose GTK theme:"
   echo "1) WhiteSur"
   echo "2) McMojave"
@@ -165,7 +228,7 @@ else
   read -n1 -p "Enter choice: " GTK_CHOICE
   echo
   install_gtk_theme "$GTK_CHOICE"
-  
+
   echo "Choose Icon theme:"
   echo "1) WhiteSur"
   echo "2) McMojave-circle"
@@ -173,14 +236,14 @@ else
   read -n1 -p "Enter choice: " ICON_CHOICE
   echo
   install_icon_theme "$ICON_CHOICE"
-  
+
   echo "Choose Cursor theme:"
   echo "1) WhiteSur"
   echo "0) Skip"
   read -n1 -p "Enter choice: " CURSOR_CHOICE
   echo
   install_cursor_theme "$CURSOR_CHOICE"
-  
+
   echo "Choose Wallpaper:"
   echo "1) Big Sur"
   echo "2) Ventura"
@@ -191,7 +254,7 @@ else
 
   install_dock
 
-  # Apply chosen settings
+  # Resolve theme names from choices
   GTK_THEME="WhiteSur-dark"
   ICON_THEME="WhiteSur"
   CURSOR_THEME="WhiteSur-cursors"
