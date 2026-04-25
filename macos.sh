@@ -85,7 +85,7 @@ install_gtk_theme() {
       echo "Installing GTK theme: WhiteSur..."
       gh_clone "https://github.com/vinceliuice/WhiteSur-gtk-theme.git" "$USER_HOME/.themes/WhiteSur-gtk-theme"
       cd "$USER_HOME/.themes/WhiteSur-gtk-theme"
-      ./install.sh -d dark -c blue -y
+      ./install.sh -c dark --silent-mode
       ;;
     2) # McMojave
       echo "Installing GTK theme: McMojave..."
